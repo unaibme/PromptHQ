@@ -233,8 +233,17 @@ function App() {
         />
       </Suspense>
 
-      <button className="floating-create-btn" onClick={handleNewPrompt}>
-        + New Prompt
+      <button
+        className="floating-create-btn"
+        type="button"
+        onClick={handleNewPrompt}
+        aria-label="Create new prompt"
+        title="Create new prompt"
+      >
+        <span className="floating-create-btn__icon" aria-hidden="true">
+          <span></span>
+          <span></span>
+        </span>
       </button>
     </div>
   )

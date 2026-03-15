@@ -52,36 +52,10 @@ body {
 }
 
 /* Header Styles */
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 0;
-  margin-bottom: 1.5rem;
-  border-bottom: 1px solid var(--border);
-}
-
-.header h1 {
-  font-family: var(--font-title);
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.header-subtitle {
-  margin-top: 0.25rem;
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-}
-
-.header-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
 /* Search Bar */
 .search-container {
   margin-bottom: 1.5rem;
+  padding-top: 0.5rem;
 }
 
 .search-toolbar {
@@ -158,9 +132,6 @@ body {
     padding: 0.75rem;
   }
   
-  .header h1 {
-    font-size: 1.25rem;
-  }
 }
 
 /* Prompt Card */
@@ -194,14 +165,6 @@ body {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-}
-
-.prompt-card-name {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--accent-hover);
-  margin-bottom: 0.45rem;
 }
 
 .prompt-card-content {
@@ -473,4 +436,12 @@ body {
   flex: 1;
   padding: 0.4rem;
   font-size: 0.8rem;
+}
+
+.floating-create-btn {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 100;
+  box-shadow: 0 10px 30px var(--shadow);
 }

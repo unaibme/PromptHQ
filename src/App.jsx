@@ -8,12 +8,10 @@ import {
   useState,
 } from 'react'
 import PromptCard from './components/PromptCard'
-import { hasSupabaseConfig, supabase } from './lib/supabase'
 
 const LOCAL_STORAGE_KEY = 'prompt-manager.prompts'
 const SEARCH_OPTIONS = [
   { value: 'title', label: 'Title' },
-  { value: 'name', label: 'Name' },
   { value: 'keyword', label: 'Keyword' },
 ]
 const PromptModal = lazy(() => import('./components/PromptModal'))
@@ -31,7 +29,6 @@ function normalizePrompt(prompt) {
 
   return {
     ...prompt,
-    name: prompt.name?.trim() || '',
     keywords: normalizeKeywords([...(prompt.keywords || []), ...legacyKeywords]),
   }
 }
@@ -79,39 +76,12 @@ function App() {
   const [searchMode, setSearchMode] = useState('title')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingPrompt, setEditingPrompt] = useState(null)
-  const [storageMode, setStorageMode] = useState(
-    hasSupabaseConfig ? 'remote' : 'local'
-  )
   const deferredSearchQuery = useDeferredValue(searchQuery)
 
   const fetchPrompts = async () => {
-    if (!supabase) {
-      setPrompts(readLocalPrompts())
-      setStorageMode('local')
-      setLoading(false)
-      return
-    }
-
-    try {
-      setLoading(true)
-      const { data, error } = await supabase
-        .from('prompts')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      if (error) {
-        throw error
-      }
-
-      setPrompts((data || []).map(normalizePrompt))
-      setStorageMode('remote')
-    } catch (error) {
-      console.error('Error fetching prompts:', error)
-      setPrompts(readLocalPrompts())
-      setStorageMode('local')
-    } finally {
-      setLoading(false)
-    }
+    setLoading(true)
+    setPrompts(readLocalPrompts())
+    setLoading(false)
   }
 
   useEffect(() => {
@@ -119,10 +89,10 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (!loading && storageMode === 'local') {
+    if (!loading) {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(prompts))
     }
-  }, [loading, prompts, storageMode])
+  }, [loading, prompts])
 
   const searchablePrompts = useMemo(
     () =>
@@ -130,7 +100,6 @@ function App() {
         prompt,
         fields: {
           title: prompt.title?.toLowerCase() || '',
-          name: prompt.name?.toLowerCase() || '',
           keyword: (prompt.keywords || []).join('\n').toLowerCase(),
         },
       })),
@@ -149,79 +118,17 @@ function App() {
   }, [deferredSearchQuery, prompts, searchMode, searchablePrompts])
 
   const handleSavePrompt = async (promptData) => {
-    if (!supabase) {
-      setPrompts((prev) => {
-        if (promptData.id) {
-          return prev.map((prompt) =>
-            prompt.id === promptData.id
-              ? mergeLocalPrompt(prompt, promptData)
-              : prompt
-          )
-        }
-
-        return [createLocalPrompt(promptData), ...prev]
-      })
-      return
-    }
-
-    try {
+    setPrompts((prev) => {
       if (promptData.id) {
-        const { data, error } = await supabase
-          .from('prompts')
-          .update({
-            name: promptData.name,
-            title: promptData.title,
-            content: promptData.content,
-            keywords: normalizeKeywords(promptData.keywords),
-          })
-          .eq('id', promptData.id)
-          .select()
-
-        if (error) {
-          throw error
-        }
-
-        setPrompts((prev) =>
-          prev.map((prompt) =>
-            prompt.id === promptData.id ? normalizePrompt(data[0]) : prompt
-          )
+        return prev.map((prompt) =>
+          prompt.id === promptData.id
+            ? mergeLocalPrompt(prompt, promptData)
+            : prompt
         )
-      } else {
-        const { data, error } = await supabase
-          .from('prompts')
-          .insert([
-            {
-              name: promptData.name,
-              title: promptData.title,
-              content: promptData.content,
-              keywords: normalizeKeywords(promptData.keywords),
-            },
-          ])
-          .select()
-
-        if (error) {
-          throw error
-        }
-
-        setPrompts((prev) => [...(data || []).map(normalizePrompt), ...prev])
-      }
-    } catch (error) {
-      console.error('Error saving prompt:', error)
-
-      if (promptData.id) {
-        setPrompts((prev) =>
-          prev.map((prompt) =>
-            prompt.id === promptData.id
-              ? mergeLocalPrompt(prompt, promptData)
-              : prompt
-          )
-        )
-      } else {
-        setPrompts((prev) => [createLocalPrompt(promptData), ...prev])
       }
 
-      setStorageMode('local')
-    }
+      return [createLocalPrompt(promptData), ...prev]
+    })
   }
 
   const handleDeletePrompt = async (id) => {
@@ -229,24 +136,7 @@ function App() {
       return
     }
 
-    if (!supabase) {
-      setPrompts((prev) => prev.filter((prompt) => prompt.id !== id))
-      return
-    }
-
-    try {
-      const { error } = await supabase.from('prompts').delete().eq('id', id)
-
-      if (error) {
-        throw error
-      }
-
-      setPrompts((prev) => prev.filter((prompt) => prompt.id !== id))
-    } catch (error) {
-      console.error('Error deleting prompt:', error)
-      setPrompts((prev) => prev.filter((prompt) => prompt.id !== id))
-      setStorageMode('local')
-    }
+    setPrompts((prev) => prev.filter((prompt) => prompt.id !== id))
   }
 
   const handleNewPrompt = () => {
@@ -261,22 +151,6 @@ function App() {
 
   return (
     <div className="app-container">
-      <header className="header">
-        <div>
-          <h1>PromptHQ</h1>
-          <p className="header-subtitle">
-            {storageMode === 'remote'
-              ? 'Synced with Supabase'
-              : 'Running in local-only mode'}
-          </p>
-        </div>
-        <div className="header-actions">
-          <button className="btn btn-primary" onClick={handleNewPrompt}>
-            + New Prompt
-          </button>
-        </div>
-      </header>
-
       <div className="search-container">
         <div className="search-toolbar">
           <div
@@ -358,6 +232,10 @@ function App() {
           prompt={editingPrompt}
         />
       </Suspense>
+
+      <button className="floating-create-btn" onClick={handleNewPrompt}>
+        + New Prompt
+      </button>
     </div>
   )
 }

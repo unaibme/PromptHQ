@@ -10,8 +10,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['vite.svg', 'icons/pwa-icon.svg'],
       manifest: {
-        name: 'Prompt Manager',
-        short_name: 'Prompts',
+        name: 'PromptHQ',
+        short_name: 'PromptHQ',
         description: 'Manage your prompts with keywords',
         theme_color: '#1a1a2e',
         background_color: '#1a1a2e',

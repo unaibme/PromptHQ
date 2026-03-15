@@ -263,7 +263,7 @@ function App() {
     <div className="app-container">
       <header className="header">
         <div>
-          <h1>Prompt Manager</h1>
+          <h1>PromptHQ</h1>
           <p className="header-subtitle">
             {storageMode === 'remote'
               ? 'Synced with Supabase'

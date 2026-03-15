@@ -1,4 +1,4 @@
--- Supabase Database Schema for Prompt Manager
+-- Supabase Database Schema for PromptHQ
 -- Run this in your Supabase SQL Editor
 
 -- Create prompts table

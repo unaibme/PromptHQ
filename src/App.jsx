@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   startTransition,
   useDeferredValue,
   useEffect,
@@ -6,10 +8,15 @@ import {
   useState,
 } from 'react'
 import PromptCard from './components/PromptCard'
-import PromptModal from './components/PromptModal'
 import { hasSupabaseConfig, supabase } from './lib/supabase'
 
 const LOCAL_STORAGE_KEY = 'prompt-manager.prompts'
+const SEARCH_OPTIONS = [
+  { value: 'title', label: 'Title' },
+  { value: 'name', label: 'Name' },
+  { value: 'keyword', label: 'Keyword' },
+]
+const PromptModal = lazy(() => import('./components/PromptModal'))
 
 function sanitizeKeyword(value) {
   return value.replace(/^#+/, '').trim()
@@ -24,6 +31,7 @@ function normalizePrompt(prompt) {
 
   return {
     ...prompt,
+    name: prompt.name?.trim() || '',
     keywords: normalizeKeywords([...(prompt.keywords || []), ...legacyKeywords]),
   }
 }
@@ -68,6 +76,7 @@ function App() {
   const [prompts, setPrompts] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchMode, setSearchMode] = useState('title')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingPrompt, setEditingPrompt] = useState(null)
   const [storageMode, setStorageMode] = useState(
@@ -119,10 +128,11 @@ function App() {
     () =>
       prompts.map((prompt) => ({
         prompt,
-        searchText: [prompt.title, prompt.content, ...(prompt.keywords || [])]
-          .filter(Boolean)
-          .join('\n')
-          .toLowerCase(),
+        fields: {
+          title: prompt.title?.toLowerCase() || '',
+          name: prompt.name?.toLowerCase() || '',
+          keyword: (prompt.keywords || []).join('\n').toLowerCase(),
+        },
       })),
     [prompts]
   )
@@ -134,9 +144,9 @@ function App() {
     }
 
     return searchablePrompts
-      .filter(({ searchText }) => searchText.includes(query))
+      .filter(({ fields }) => fields[searchMode].includes(query))
       .map(({ prompt }) => prompt)
-  }, [deferredSearchQuery, prompts, searchablePrompts])
+  }, [deferredSearchQuery, prompts, searchMode, searchablePrompts])
 
   const handleSavePrompt = async (promptData) => {
     if (!supabase) {
@@ -159,6 +169,7 @@ function App() {
         const { data, error } = await supabase
           .from('prompts')
           .update({
+            name: promptData.name,
             title: promptData.title,
             content: promptData.content,
             keywords: normalizeKeywords(promptData.keywords),
@@ -180,6 +191,7 @@ function App() {
           .from('prompts')
           .insert([
             {
+              name: promptData.name,
               title: promptData.title,
               content: promptData.content,
               keywords: normalizeKeywords(promptData.keywords),
@@ -266,18 +278,37 @@ function App() {
       </header>
 
       <div className="search-container">
-        <input
-          type="text"
-          className="search-input"
-          placeholder="Search by title, content, or keywords..."
-          value={searchQuery}
-          onChange={(event) => {
-            const nextValue = event.target.value
-            startTransition(() => {
-              setSearchQuery(nextValue)
-            })
-          }}
-        />
+        <div className="search-toolbar">
+          <div
+            className="search-filter-group"
+            role="tablist"
+            aria-label="Search mode"
+          >
+            {SEARCH_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`search-filter ${searchMode === option.value ? 'is-active' : ''}`}
+                onClick={() => setSearchMode(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+
+          <input
+            type="text"
+            className="search-input"
+            placeholder={`Search by ${searchMode}...`}
+            value={searchQuery}
+            onChange={(event) => {
+              const nextValue = event.target.value
+              startTransition(() => {
+                setSearchQuery(nextValue)
+              })
+            }}
+          />
+        </div>
       </div>
 
       {loading ? (
@@ -316,15 +347,17 @@ function App() {
         </div>
       )}
 
-      <PromptModal
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false)
-          setEditingPrompt(null)
-        }}
-        onSave={handleSavePrompt}
-        prompt={editingPrompt}
-      />
+      <Suspense fallback={null}>
+        <PromptModal
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false)
+            setEditingPrompt(null)
+          }}
+          onSave={handleSavePrompt}
+          prompt={editingPrompt}
+        />
+      </Suspense>
     </div>
   )
 }

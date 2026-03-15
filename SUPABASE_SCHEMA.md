@@ -4,6 +4,7 @@
 -- Create prompts table
 CREATE TABLE IF NOT EXISTS prompts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT DEFAULT '',
   title TEXT NOT NULL,
   content TEXT NOT NULL,
   keywords TEXT[] DEFAULT '{}',
@@ -35,6 +36,8 @@ CREATE POLICY "Users can delete their own prompts" ON prompts
   FOR DELETE USING (true);
 
 -- Create indexes for better search performance
+CREATE INDEX IF NOT EXISTS idx_prompts_name ON prompts(name);
+CREATE INDEX IF NOT EXISTS idx_prompts_title ON prompts(title);
 CREATE INDEX IF NOT EXISTS idx_prompts_keywords ON prompts USING GIN(keywords);
 CREATE INDEX IF NOT EXISTS idx_prompts_created_at ON prompts(created_at DESC);
 

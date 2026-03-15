@@ -5,6 +5,7 @@ function PromptCard({ prompt, onEdit, onDelete }) {
 
   return (
     <div className="prompt-card" onClick={() => onEdit(prompt)}>
+      {prompt.name && <p className="prompt-card-name">{prompt.name}</p>}
       <h3 className="prompt-card-title">{prompt.title}</h3>
       <p className="prompt-card-content">{prompt.content}</p>
 

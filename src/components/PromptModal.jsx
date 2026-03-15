@@ -17,6 +17,7 @@ function normalizeKeyword(value) {
 }
 
 function PromptModal({ isOpen, onClose, onSave, prompt }) {
+  const [name, setName] = useState('')
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [keywordsInput, setKeywordsInput] = useState('')
@@ -24,10 +25,12 @@ function PromptModal({ isOpen, onClose, onSave, prompt }) {
 
   useEffect(() => {
     if (prompt) {
+      setName(prompt.name || '')
       setTitle(prompt.title || '')
       setContent(prompt.content || '')
       setKeywordsInput((prompt.keywords || []).join(', '))
     } else {
+      setName('')
       setTitle('')
       setContent('')
       setKeywordsInput('')
@@ -47,6 +50,7 @@ function PromptModal({ isOpen, onClose, onSave, prompt }) {
 
       await onSave({
         id: prompt?.id,
+        name: name.trim(),
         title: title.trim(),
         content: content.trim(),
         keywords,
@@ -72,6 +76,18 @@ function PromptModal({ isOpen, onClose, onSave, prompt }) {
 
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
+            <div className="form-group">
+              <label htmlFor="name">Name</label>
+              <input
+                type="text"
+                id="name"
+                className="form-input"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Add a prompt name..."
+              />
+            </div>
+
             <div className="form-group">
               <label htmlFor="title">Title *</label>
               <input

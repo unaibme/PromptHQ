@@ -76,6 +76,7 @@ function App() {
   const [searchMode, setSearchMode] = useState('title')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingPrompt, setEditingPrompt] = useState(null)
+  const [copiedPromptId, setCopiedPromptId] = useState(null)
   const deferredSearchQuery = useDeferredValue(searchQuery)
 
   const fetchPrompts = async () => {
@@ -149,6 +150,28 @@ function App() {
     setIsModalOpen(true)
   }
 
+  const handleCopyPrompt = async (prompt) => {
+    try {
+      await navigator.clipboard.writeText(prompt.content)
+      setCopiedPromptId(prompt.id)
+    } catch (error) {
+      console.error('Error copying prompt:', error)
+      window.alert('Copy failed. Please check clipboard permissions and try again.')
+    }
+  }
+
+  useEffect(() => {
+    if (!copiedPromptId) {
+      return undefined
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setCopiedPromptId(null)
+    }, 1800)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [copiedPromptId])
+
   return (
     <div className="app-container">
       <div className="search-container">
@@ -214,6 +237,8 @@ function App() {
             <PromptCard
               key={prompt.id}
               prompt={prompt}
+              isCopied={copiedPromptId === prompt.id}
+              onCopy={handleCopyPrompt}
               onEdit={handleEditPrompt}
               onDelete={handleDeletePrompt}
             />

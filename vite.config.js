@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['vite.svg', 'icons/pwa-icon.svg'],
+      includeAssets: ['icons/icon.png'],
       manifest: {
         name: 'PromptHQ',
         short_name: 'PromptHQ',
@@ -19,9 +19,9 @@ export default defineConfig({
         orientation: 'portrait',
         icons: [
           {
-            src: 'icons/pwa-icon.svg',
-            sizes: 'any',
-            type: 'image/svg+xml',
+            src: 'icons/icon.png',
+            sizes: '512x512',
+            type: 'image/png',
             purpose: 'any',
           },
         ],

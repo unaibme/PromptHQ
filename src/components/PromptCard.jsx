@@ -1,31 +1,36 @@
 import { memo } from 'react'
 
-function PromptCard({ prompt, onEdit, onDelete }) {
-  const allTags = prompt.keywords || []
+function PromptCard({ prompt, isCopied, onCopy, onEdit, onDelete }) {
+  const handleCardKeyDown = (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      onCopy(prompt)
+    }
+  }
 
   return (
-    <div className="prompt-card" onClick={() => onEdit(prompt)}>
+    <div
+      className="prompt-card"
+      onClick={() => onCopy(prompt)}
+      onKeyDown={handleCardKeyDown}
+      role="button"
+      tabIndex={0}
+      aria-label={`Copy prompt ${prompt.title}`}
+      title="Click to copy prompt"
+    >
       <h3 className="prompt-card-title">{prompt.title}</h3>
       <p className="prompt-card-content">{prompt.content}</p>
-
-      {allTags.length > 0 && (
-        <div className="prompt-card-tags">
-          {allTags.slice(0, 4).map((tag, index) => (
-            <span key={`${tag}-${index}`} className="tag">
-              {tag}
-            </span>
-          ))}
-          {allTags.length > 4 && (
-            <span className="tag">+{allTags.length - 4}</span>
-          )}
-        </div>
-      )}
+      <p className={`prompt-card-copy-hint ${isCopied ? 'is-copied' : ''}`}>
+        {isCopied ? 'Copied to clipboard' : 'Click card to copy'}
+      </p>
 
       <div
         className="prompt-card-actions"
         onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => event.stopPropagation()}
       >
         <button
+          type="button"
           className="btn btn-icon"
           onClick={() => onEdit(prompt)}
           title="Edit"
@@ -33,6 +38,7 @@ function PromptCard({ prompt, onEdit, onDelete }) {
           Edit
         </button>
         <button
+          type="button"
           className="btn btn-icon"
           onClick={() => onDelete(prompt.id)}
           title="Delete"

@@ -1,6 +1,6 @@
 import { memo } from 'react'
 
-function PromptCard({ prompt, isCopied, onCopy, onEdit, onDelete }) {
+function PromptCard({ prompt, onCopy, onEdit, onDelete }) {
   const handleCardKeyDown = (event) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
@@ -20,9 +20,6 @@ function PromptCard({ prompt, isCopied, onCopy, onEdit, onDelete }) {
     >
       <h3 className="prompt-card-title">{prompt.title}</h3>
       <p className="prompt-card-content">{prompt.content}</p>
-      <p className={`prompt-card-copy-hint ${isCopied ? 'is-copied' : ''}`}>
-        {isCopied ? 'Copied to clipboard' : 'Click card to copy'}
-      </p>
 
       <div
         className="prompt-card-actions"

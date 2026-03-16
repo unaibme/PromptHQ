@@ -144,7 +144,8 @@ body {
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  min-height: 180px;
+  height: 180px;
+  overflow: hidden;
 }
 
 .prompt-card:hover {
@@ -172,24 +173,11 @@ body {
   font-size: 0.85rem;
   color: var(--text-secondary);
   flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
   line-height: 1.5;
-}
-
-.prompt-card-copy-hint {
-  margin-top: 0.75rem;
-  font-size: 0.72rem;
-  color: var(--text-secondary);
-  letter-spacing: 0.02em;
-  transition: color 0.2s ease;
-}
-
-.prompt-card-copy-hint.is-copied {
-  color: var(--success);
+  padding-right: 0.15rem;
 }
 
 .prompt-card:focus-visible {

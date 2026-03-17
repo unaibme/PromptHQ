@@ -8,6 +8,7 @@ import {
   useState,
 } from 'react'
 import PromptCard from './components/PromptCard'
+import { isSupabaseConfigured, supabase } from './supabase'
 
 const LOCAL_STORAGE_KEY = 'prompt-manager.prompts'
 const SEARCH_OPTIONS = [
@@ -69,9 +70,64 @@ function readLocalPrompts() {
   }
 }
 
+function writeLocalPrompts(prompts) {
+  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(prompts))
+}
+
+function sortPromptsByUpdatedAt(prompts) {
+  return [...prompts].sort((left, right) =>
+    new Date(right.updated_at || right.created_at || 0).getTime() -
+    new Date(left.updated_at || left.created_at || 0).getTime()
+  )
+}
+
+function mergePromptCollections(...collections) {
+  const promptMap = new Map()
+
+  collections.flat().forEach((prompt) => {
+    const normalizedPrompt = normalizePrompt(prompt)
+    const existingPrompt = promptMap.get(normalizedPrompt.id)
+
+    if (!existingPrompt) {
+      promptMap.set(normalizedPrompt.id, normalizedPrompt)
+      return
+    }
+
+    const existingTime = new Date(
+      existingPrompt.updated_at || existingPrompt.created_at || 0
+    ).getTime()
+    const nextTime = new Date(
+      normalizedPrompt.updated_at || normalizedPrompt.created_at || 0
+    ).getTime()
+
+    promptMap.set(
+      normalizedPrompt.id,
+      nextTime >= existingTime ? normalizedPrompt : existingPrompt
+    )
+  })
+
+  return sortPromptsByUpdatedAt([...promptMap.values()])
+}
+
+function shouldUploadLocalPrompt(localPrompt, remotePrompt) {
+  if (!remotePrompt) {
+    return true
+  }
+
+  const localTime = new Date(
+    localPrompt.updated_at || localPrompt.created_at || 0
+  ).getTime()
+  const remoteTime = new Date(
+    remotePrompt.updated_at || remotePrompt.created_at || 0
+  ).getTime()
+
+  return localTime > remoteTime
+}
+
 function App() {
   const [prompts, setPrompts] = useState([])
   const [loading, setLoading] = useState(true)
+  const [syncMessage, setSyncMessage] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [searchMode, setSearchMode] = useState('title')
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -81,8 +137,63 @@ function App() {
 
   const fetchPrompts = async () => {
     setLoading(true)
-    setPrompts(readLocalPrompts())
-    setLoading(false)
+    const localPrompts = readLocalPrompts()
+
+    if (!isSupabaseConfigured || !supabase) {
+      setPrompts(localPrompts)
+      setSyncMessage('Supabase is not configured. Showing prompts saved on this device only.')
+      setLoading(false)
+      return
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('prompts')
+        .select('*')
+        .order('updated_at', { ascending: false })
+
+      if (error) {
+        throw error
+      }
+
+      const remotePrompts = (data || []).map(normalizePrompt)
+      const remotePromptMap = new Map(
+        remotePrompts.map((prompt) => [prompt.id, prompt])
+      )
+      const promptsToUpload = localPrompts.filter((prompt) =>
+        shouldUploadLocalPrompt(prompt, remotePromptMap.get(prompt.id))
+      )
+
+      if (promptsToUpload.length > 0) {
+        const { data: uploadedPrompts, error: uploadError } = await supabase
+          .from('prompts')
+          .upsert(promptsToUpload, { onConflict: 'id' })
+          .select()
+
+        if (uploadError) {
+          throw uploadError
+        }
+
+        const mergedPrompts = mergePromptCollections(
+          remotePrompts,
+          uploadedPrompts || []
+        )
+
+        setPrompts(mergedPrompts)
+        writeLocalPrompts(mergedPrompts)
+        setSyncMessage('Synced with Supabase.')
+      } else {
+        setPrompts(remotePrompts)
+        writeLocalPrompts(remotePrompts)
+        setSyncMessage('Synced with Supabase.')
+      }
+    } catch (error) {
+      console.error('Error fetching prompts:', error)
+      setPrompts(localPrompts)
+      setSyncMessage('Supabase sync failed. Showing prompts saved on this device.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -91,7 +202,7 @@ function App() {
 
   useEffect(() => {
     if (!loading) {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(prompts))
+      writeLocalPrompts(prompts)
     }
   }, [loading, prompts])
 
@@ -119,17 +230,75 @@ function App() {
   }, [deferredSearchQuery, prompts, searchMode, searchablePrompts])
 
   const handleSavePrompt = async (promptData) => {
-    setPrompts((prev) => {
+    if (!isSupabaseConfigured || !supabase) {
+      setPrompts((prev) => {
+        if (promptData.id) {
+          return prev.map((prompt) =>
+            prompt.id === promptData.id
+              ? mergeLocalPrompt(prompt, promptData)
+              : prompt
+          )
+        }
+
+        return [createLocalPrompt(promptData), ...prev]
+      })
+
+      setSyncMessage('Saved locally only because Supabase is not configured.')
+      return
+    }
+
+    try {
       if (promptData.id) {
-        return prev.map((prompt) =>
-          prompt.id === promptData.id
-            ? mergeLocalPrompt(prompt, promptData)
-            : prompt
+        const currentPrompt = prompts.find((prompt) => prompt.id === promptData.id)
+        const nextPrompt = mergeLocalPrompt(currentPrompt || {}, promptData)
+        const { data, error } = await supabase
+          .from('prompts')
+          .update({
+            title: nextPrompt.title,
+            content: nextPrompt.content,
+            keywords: nextPrompt.keywords,
+            updated_at: nextPrompt.updated_at,
+          })
+          .eq('id', promptData.id)
+          .select()
+          .single()
+
+        if (error) {
+          throw error
+        }
+
+        setPrompts((prev) =>
+          sortPromptsByUpdatedAt(
+            prev.map((prompt) => (prompt.id === data.id ? normalizePrompt(data) : prompt))
+          )
         )
+      } else {
+        const nextPrompt = createLocalPrompt(promptData)
+        const { data, error } = await supabase
+          .from('prompts')
+          .insert({
+            id: nextPrompt.id,
+            title: nextPrompt.title,
+            content: nextPrompt.content,
+            keywords: nextPrompt.keywords,
+            created_at: nextPrompt.created_at,
+            updated_at: nextPrompt.updated_at,
+          })
+          .select()
+          .single()
+
+        if (error) {
+          throw error
+        }
+
+        setPrompts((prev) => [normalizePrompt(data), ...prev])
       }
 
-      return [createLocalPrompt(promptData), ...prev]
-    })
+      setSyncMessage('Saved to Supabase.')
+    } catch (error) {
+      console.error('Error saving prompt:', error)
+      window.alert('Saving to Supabase failed. Please try again.')
+    }
   }
 
   const handleDeletePrompt = async (id) => {
@@ -137,7 +306,25 @@ function App() {
       return
     }
 
-    setPrompts((prev) => prev.filter((prompt) => prompt.id !== id))
+    if (!isSupabaseConfigured || !supabase) {
+      setPrompts((prev) => prev.filter((prompt) => prompt.id !== id))
+      setSyncMessage('Deleted locally only because Supabase is not configured.')
+      return
+    }
+
+    try {
+      const { error } = await supabase.from('prompts').delete().eq('id', id)
+
+      if (error) {
+        throw error
+      }
+
+      setPrompts((prev) => prev.filter((prompt) => prompt.id !== id))
+      setSyncMessage('Deleted from Supabase.')
+    } catch (error) {
+      console.error('Error deleting prompt:', error)
+      window.alert('Deleting from Supabase failed. Please try again.')
+    }
   }
 
   const handleNewPrompt = () => {
@@ -176,6 +363,7 @@ function App() {
     <div className="app-container">
       <div className="search-container">
         <div className="search-toolbar">
+          {syncMessage ? <p className="sync-status">{syncMessage}</p> : null}
           <div
             className="search-filter-group"
             role="tablist"

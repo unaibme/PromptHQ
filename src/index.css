@@ -64,6 +64,11 @@ body {
   gap: 0.75rem;
 }
 
+.sync-status {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
 .search-filter-group {
   display: flex;
   gap: 0.5rem;

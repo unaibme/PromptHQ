@@ -237,7 +237,6 @@ function App() {
             <PromptCard
               key={prompt.id}
               prompt={prompt}
-              isCopied={copiedPromptId === prompt.id}
               onCopy={handleCopyPrompt}
               onEdit={handleEditPrompt}
               onDelete={handleDeletePrompt}

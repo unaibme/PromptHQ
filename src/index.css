@@ -189,11 +189,15 @@ body {
 }
 
 .prompt-card-actions {
-  display: flex;
+  display: none;
   gap: 0.5rem;
   margin-top: 0.75rem;
   padding-top: 0.75rem;
   border-top: 1px solid var(--border);
+}
+
+.prompt-card.is-actions-visible .prompt-card-actions {
+  display: flex;
 }
 
 /* Buttons */

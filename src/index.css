@@ -16,6 +16,10 @@
   --font-title: 'Segoe UI Variable Display', 'Aptos Display', 'Trebuchet MS', sans-serif;
   --font-content: 'Georgia', 'Times New Roman', serif;
   --font-ui: 'Segoe UI Variable Text', 'Aptos', 'Segoe UI', sans-serif;
+
+  --container-max: 1200px;
+  --grid-gap: 1rem;
+  --card-height: 180px;
 }
 
 * {
@@ -44,7 +48,7 @@ body {
 }
 
 .app-container {
-  max-width: 1200px;
+  max-width: var(--container-max);
   margin: 0 auto;
   padding: 1rem;
   width: 100%;
@@ -118,14 +122,52 @@ body {
 /* Grid Layout - 2 columns on mobile, responsive */
 .prompt-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
+  grid-template-columns: 1fr;
+  gap: var(--grid-gap);
   width: 100%;
+  grid-auto-rows: var(--card-height);
+}
+
+@media (min-width: 560px) {
+  .prompt-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .prompt-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: repeat(3, var(--card-height));
+  }
+
+  .app-container {
+    --container-max: 1400px;
+    padding: 1.25rem;
+  }
+
+  .search-toolbar {
+    display: grid;
+    grid-template-columns: 1fr minmax(320px, 520px);
+    align-items: end;
+    column-gap: 1rem;
+    row-gap: 0.75rem;
+  }
+
+  .sync-status {
+    grid-column: 1 / -1;
+  }
+
+  .search-filter-group {
+    align-self: center;
+  }
+
+  .search-input {
+    align-self: center;
+  }
 }
 
 @media (max-width: 600px) {
   .prompt-grid {
-    grid-template-columns: repeat(2, 1fr);
     gap: 0.75rem;
   }
 
@@ -149,8 +191,12 @@ body {
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  height: 180px;
+  height: var(--card-height);
   overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
 }
 
 .prompt-card:hover {

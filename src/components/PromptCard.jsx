@@ -155,8 +155,8 @@ function PromptCard({ prompt, onCopy, onEdit, onDelete }) {
       }}
       role="button"
       tabIndex={0}
-      aria-label={`Copy prompt ${prompt.title}`}
-      title="Click to copy prompt. Hold to show edit and delete."
+      aria-label="Copy to Clipboard"
+      title="Copy to Clipboard"
     >
       <h3 className="prompt-card-title">{prompt.title}</h3>
       <p className="prompt-card-content">{prompt.content}</p>

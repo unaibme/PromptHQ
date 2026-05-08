@@ -1,6 +1,14 @@
 import { memo, useEffect, useRef, useState } from 'react'
 
-function PromptCard({ prompt, onCopy, onEdit, onDelete }) {
+function PromptCard({
+  prompt,
+  displayTitle,
+  onCopy,
+  onEdit,
+  onDelete,
+  labels,
+  isAdminMode,
+}) {
   const [showActions, setShowActions] = useState(false)
   const cardRef = useRef(null)
   const pressTimerRef = useRef(null)
@@ -23,6 +31,10 @@ function PromptCard({ prompt, onCopy, onEdit, onDelete }) {
   }, [])
 
   const startLongPress = (event) => {
+    if (!isAdminMode) {
+      return
+    }
+
     if (event.pointerType === 'mouse' && event.button !== 0) {
       return
     }
@@ -83,6 +95,13 @@ function PromptCard({ prompt, onCopy, onEdit, onDelete }) {
   useEffect(() => () => clearPressTimer(), [])
 
   useEffect(() => {
+    if (!isAdminMode) {
+      setShowActions(false)
+      clearPressTimer()
+    }
+  }, [isAdminMode])
+
+  useEffect(() => {
     if (!showActions) {
       return undefined
     }
@@ -128,12 +147,12 @@ function PromptCard({ prompt, onCopy, onEdit, onDelete }) {
         }
       }}
       onMouseEnter={() => {
-        if (prefersHoverActionsRef.current) {
+        if (isAdminMode && prefersHoverActionsRef.current) {
           setShowActions(true)
         }
       }}
       onMouseLeave={() => {
-        if (prefersHoverActionsRef.current) {
+        if (isAdminMode && prefersHoverActionsRef.current) {
           setShowActions(false)
         }
       }}
@@ -155,42 +174,44 @@ function PromptCard({ prompt, onCopy, onEdit, onDelete }) {
       }}
       role="button"
       tabIndex={0}
-      aria-label="Copy to Clipboard"
-      title="Copy to Clipboard"
+      aria-label={labels.copyToClipboard || 'Copy to Clipboard'}
+      title={labels.copyToClipboard || 'Copy to Clipboard'}
     >
-      <h3 className="prompt-card-title">{prompt.title}</h3>
+      <h3 className="prompt-card-title">{displayTitle || prompt.title}</h3>
       <p className="prompt-card-content">{prompt.content}</p>
 
-      <div
-        className="prompt-card-actions"
-        onClick={(event) => event.stopPropagation()}
-        onKeyDown={(event) => event.stopPropagation()}
-        onPointerDown={(event) => event.stopPropagation()}
-        onPointerUp={(event) => event.stopPropagation()}
-      >
-        <button
-          type="button"
-          className="btn btn-icon"
-          onClick={() => {
-            setShowActions(false)
-            onEdit(prompt)
-          }}
-          title="Edit"
+      {isAdminMode ? (
+        <div
+          className="prompt-card-actions"
+          onClick={(event) => event.stopPropagation()}
+          onKeyDown={(event) => event.stopPropagation()}
+          onPointerDown={(event) => event.stopPropagation()}
+          onPointerUp={(event) => event.stopPropagation()}
         >
-          Edit
-        </button>
-        <button
-          type="button"
-          className="btn btn-icon"
-          onClick={() => {
-            setShowActions(false)
-            onDelete(prompt.id)
-          }}
-          title="Delete"
-        >
-          Delete
-        </button>
-      </div>
+          <button
+            type="button"
+            className="btn btn-icon"
+            onClick={() => {
+              setShowActions(false)
+              onEdit(prompt)
+            }}
+            title={labels.edit || 'Edit'}
+          >
+            {labels.edit || 'Edit'}
+          </button>
+          <button
+            type="button"
+            className="btn btn-icon"
+            onClick={() => {
+              setShowActions(false)
+              onDelete(prompt.id)
+            }}
+            title={labels.delete || 'Delete'}
+          >
+            {labels.delete || 'Delete'}
+          </button>
+        </div>
+      ) : null}
     </div>
   )
 }

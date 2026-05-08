@@ -11,11 +11,101 @@ import PromptCard from './components/PromptCard'
 import { isSupabaseConfigured, supabase } from './supabase'
 
 const LOCAL_STORAGE_KEY = 'prompt-manager.prompts'
-const SEARCH_OPTIONS = [
-  { value: 'title', label: 'Title' },
-  { value: 'keyword', label: 'Keyword' },
-]
+const LANGUAGE_STORAGE_KEY = 'prompt-manager.language'
+const TITLE_TRANSLATION_CACHE_KEY = 'prompt-manager.title-translations.pt-BR'
+const ADMIN_MODE_STORAGE_KEY = 'prompt-manager.admin-mode'
+const ADMIN_MODE_PASSWORD = 'HydraHen2.0'
 const PromptModal = lazy(() => import('./components/PromptModal'))
+
+const MESSAGES = {
+  en: {
+    languageLabel: 'Language',
+    languageEnglish: 'English',
+    languagePortugueseBrazil: 'Portuguese (Brazil)',
+    adminMode: 'Admin',
+    adminPasswordPrompt: 'Enter admin password',
+    adminPasswordWrong: 'Incorrect password. Admin mode was not enabled.',
+    adminPasswordPlaceholder: 'Password',
+    searchPlaceholder: 'Search by title...',
+    noPromptsChip: 'No prompts',
+    noPromptsFoundTitle: 'No prompts found',
+    noPromptsYetTitle: 'No prompts yet',
+    noPromptsFoundHint: 'Try a different search term or create a new prompt.',
+    noPromptsYetHint: 'Create your first prompt to get started!',
+    createPrompt: 'Create Prompt',
+    createNewPromptA11y: 'Create new prompt',
+    copyToClipboard: 'Copy to Clipboard',
+    edit: 'Edit',
+    delete: 'Delete',
+    newPrompt: 'New Prompt',
+    editPrompt: 'Edit Prompt',
+    close: 'Close',
+    titleField: 'Title *',
+    titlePlaceholder: 'Enter prompt title...',
+    contentField: 'Prompt Content *',
+    contentPlaceholder: 'Enter your prompt here...',
+    cancel: 'Cancel',
+    saving: 'Saving...',
+    update: 'Update',
+    create: 'Create',
+    syncNotConfigured:
+      'Supabase is not configured. Showing prompts saved on this device only.',
+    syncedWithSupabase: 'Synced with Supabase.',
+    syncFailed: 'Supabase sync failed. Showing prompts saved on this device.',
+    savedLocalOnly: 'Saved locally only because Supabase is not configured.',
+    savedToSupabase: 'Saved to Supabase.',
+    saveFailedAlert: 'Saving to Supabase failed. Please try again.',
+    confirmDeletePrompt: 'Are you sure you want to delete this prompt?',
+    deletedLocalOnly: 'Deleted locally only because Supabase is not configured.',
+    deletedFromSupabase: 'Deleted from Supabase.',
+    deleteFailedAlert: 'Deleting from Supabase failed. Please try again.',
+    copyFailedAlert: 'Copy failed. Please check clipboard permissions and try again.',
+  },
+  'pt-BR': {
+    languageLabel: 'Idioma',
+    languageEnglish: 'Ingles',
+    languagePortugueseBrazil: 'Portugues (Brasil)',
+    adminMode: 'Admin',
+    adminPasswordPrompt: 'Digite a senha de admin',
+    adminPasswordWrong: 'Senha incorreta. O modo admin nao foi ativado.',
+    adminPasswordPlaceholder: 'Senha',
+    searchPlaceholder: 'Buscar por titulo...',
+    noPromptsChip: 'Sem prompts',
+    noPromptsFoundTitle: 'Nenhum prompt encontrado',
+    noPromptsYetTitle: 'Ainda sem prompts',
+    noPromptsFoundHint: 'Tente outro termo de busca ou crie um novo prompt.',
+    noPromptsYetHint: 'Crie seu primeiro prompt para comecar!',
+    createPrompt: 'Criar prompt',
+    createNewPromptA11y: 'Criar novo prompt',
+    copyToClipboard: 'Copiar para a area de transferencia',
+    edit: 'Editar',
+    delete: 'Excluir',
+    newPrompt: 'Novo prompt',
+    editPrompt: 'Editar prompt',
+    close: 'Fechar',
+    titleField: 'Titulo *',
+    titlePlaceholder: 'Digite o titulo do prompt...',
+    contentField: 'Conteudo do prompt *',
+    contentPlaceholder: 'Digite seu prompt aqui...',
+    cancel: 'Cancelar',
+    saving: 'Salvando...',
+    update: 'Atualizar',
+    create: 'Criar',
+    syncNotConfigured:
+      'Supabase nao configurado. Exibindo apenas prompts salvos neste dispositivo.',
+    syncedWithSupabase: 'Sincronizado com o Supabase.',
+    syncFailed: 'Falha na sincronizacao com Supabase. Exibindo prompts locais.',
+    savedLocalOnly: 'Salvo localmente porque o Supabase nao esta configurado.',
+    savedToSupabase: 'Salvo no Supabase.',
+    saveFailedAlert: 'Falha ao salvar no Supabase. Tente novamente.',
+    confirmDeletePrompt: 'Tem certeza de que deseja excluir este prompt?',
+    deletedLocalOnly: 'Removido localmente porque o Supabase nao esta configurado.',
+    deletedFromSupabase: 'Removido do Supabase.',
+    deleteFailedAlert: 'Falha ao excluir no Supabase. Tente novamente.',
+    copyFailedAlert:
+      'Falha ao copiar. Verifique as permissoes da area de transferencia.',
+  },
+}
 
 function sanitizeKeyword(value) {
   return value.replace(/^#+/, '').trim()
@@ -129,11 +219,92 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [syncMessage, setSyncMessage] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchMode, setSearchMode] = useState('title')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingPrompt, setEditingPrompt] = useState(null)
   const [copiedPromptId, setCopiedPromptId] = useState(null)
+  const [translatedTitles, setTranslatedTitles] = useState({})
+  const [isAdminPasswordModalOpen, setIsAdminPasswordModalOpen] = useState(false)
+  const [adminPasswordInput, setAdminPasswordInput] = useState('')
+  const [isAdminMode, setIsAdminMode] = useState(() => {
+    return localStorage.getItem(ADMIN_MODE_STORAGE_KEY) === 'true'
+  })
+  const [language, setLanguage] = useState(() => {
+    const storedLanguage = localStorage.getItem(LANGUAGE_STORAGE_KEY)
+    return storedLanguage === 'pt-BR' ? 'pt-BR' : 'en'
+  })
   const deferredSearchQuery = useDeferredValue(searchQuery)
+  const t = MESSAGES[language]
+
+  useEffect(() => {
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, language)
+  }, [language])
+
+  useEffect(() => {
+    localStorage.setItem(ADMIN_MODE_STORAGE_KEY, String(isAdminMode))
+  }, [isAdminMode])
+
+  useEffect(() => {
+    if (language !== 'pt-BR') {
+      setTranslatedTitles({})
+      return
+    }
+
+    let isCancelled = false
+    const loadTranslatedTitles = async () => {
+      let cache = {}
+
+      try {
+        const rawCache = localStorage.getItem(TITLE_TRANSLATION_CACHE_KEY)
+        cache = rawCache ? JSON.parse(rawCache) : {}
+      } catch {
+        cache = {}
+      }
+
+      const nextTitles = { ...cache }
+      const uniqueTitles = [...new Set(prompts.map((prompt) => (prompt.title || '').trim()))]
+      const titlesToTranslate = uniqueTitles.filter(
+        (title) => title && !nextTitles[title]
+      )
+
+      if (titlesToTranslate.length > 0) {
+        const translations = await Promise.all(
+          titlesToTranslate.map(async (title) => {
+            try {
+              const response = await fetch(
+                `https://api.mymemory.translated.net/get?q=${encodeURIComponent(title)}&langpair=en|pt-BR`
+              )
+              const payload = await response.json()
+              const translatedTitle = payload?.responseData?.translatedText?.trim()
+              if (!translatedTitle) {
+                return [title, title]
+              }
+
+              return [title, translatedTitle]
+            } catch {
+              return [title, title]
+            }
+          })
+        )
+
+        translations.forEach(([sourceTitle, translatedTitle]) => {
+          nextTitles[sourceTitle] = translatedTitle
+        })
+      }
+
+      if (isCancelled) {
+        return
+      }
+
+      setTranslatedTitles(nextTitles)
+      localStorage.setItem(TITLE_TRANSLATION_CACHE_KEY, JSON.stringify(nextTitles))
+    }
+
+    loadTranslatedTitles()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [language, prompts])
 
   const fetchPrompts = async () => {
     setLoading(true)
@@ -141,7 +312,7 @@ function App() {
 
     if (!isSupabaseConfigured || !supabase) {
       setPrompts(localPrompts)
-      setSyncMessage('Supabase is not configured. Showing prompts saved on this device only.')
+      setSyncMessage(t.syncNotConfigured)
       setLoading(false)
       return
     }
@@ -181,16 +352,16 @@ function App() {
 
         setPrompts(mergedPrompts)
         writeLocalPrompts(mergedPrompts)
-        setSyncMessage('Synced with Supabase.')
+        setSyncMessage(t.syncedWithSupabase)
       } else {
         setPrompts(remotePrompts)
         writeLocalPrompts(remotePrompts)
-        setSyncMessage('Synced with Supabase.')
+        setSyncMessage(t.syncedWithSupabase)
       }
     } catch (error) {
       console.error('Error fetching prompts:', error)
       setPrompts(localPrompts)
-      setSyncMessage('Supabase sync failed. Showing prompts saved on this device.')
+      setSyncMessage(t.syncFailed)
     } finally {
       setLoading(false)
     }
@@ -201,22 +372,31 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) {
+      return undefined
+    }
+
+    const channel = supabase
+      .channel('prompts-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'prompts' },
+        () => {
+          fetchPrompts()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [])
+
+  useEffect(() => {
     if (!loading) {
       writeLocalPrompts(prompts)
     }
   }, [loading, prompts])
-
-  const searchablePrompts = useMemo(
-    () =>
-      prompts.map((prompt) => ({
-        prompt,
-        fields: {
-          title: prompt.title?.toLowerCase() || '',
-          keyword: (prompt.keywords || []).join('\n').toLowerCase(),
-        },
-      })),
-    [prompts]
-  )
 
   const filteredPrompts = useMemo(() => {
     const query = deferredSearchQuery.trim().toLowerCase()
@@ -224,10 +404,10 @@ function App() {
       return prompts
     }
 
-    return searchablePrompts
-      .filter(({ fields }) => fields[searchMode].includes(query))
-      .map(({ prompt }) => prompt)
-  }, [deferredSearchQuery, prompts, searchMode, searchablePrompts])
+    return prompts.filter((prompt) =>
+      (prompt.title || '').toLowerCase().includes(query)
+    )
+  }, [deferredSearchQuery, prompts])
 
   const handleSavePrompt = async (promptData) => {
     if (!isSupabaseConfigured || !supabase) {
@@ -243,7 +423,7 @@ function App() {
         return [createLocalPrompt(promptData), ...prev]
       })
 
-      setSyncMessage('Saved locally only because Supabase is not configured.')
+      setSyncMessage(t.savedLocalOnly)
       return
     }
 
@@ -294,21 +474,21 @@ function App() {
         setPrompts((prev) => [normalizePrompt(data), ...prev])
       }
 
-      setSyncMessage('Saved to Supabase.')
+      setSyncMessage(t.savedToSupabase)
     } catch (error) {
       console.error('Error saving prompt:', error)
-      window.alert('Saving to Supabase failed. Please try again.')
+      window.alert(t.saveFailedAlert)
     }
   }
 
   const handleDeletePrompt = async (id) => {
-    if (!confirm('Are you sure you want to delete this prompt?')) {
+    if (!confirm(t.confirmDeletePrompt)) {
       return
     }
 
     if (!isSupabaseConfigured || !supabase) {
       setPrompts((prev) => prev.filter((prompt) => prompt.id !== id))
-      setSyncMessage('Deleted locally only because Supabase is not configured.')
+      setSyncMessage(t.deletedLocalOnly)
       return
     }
 
@@ -320,10 +500,10 @@ function App() {
       }
 
       setPrompts((prev) => prev.filter((prompt) => prompt.id !== id))
-      setSyncMessage('Deleted from Supabase.')
+      setSyncMessage(t.deletedFromSupabase)
     } catch (error) {
       console.error('Error deleting prompt:', error)
-      window.alert('Deleting from Supabase failed. Please try again.')
+      window.alert(t.deleteFailedAlert)
     }
   }
 
@@ -343,7 +523,7 @@ function App() {
       setCopiedPromptId(prompt.id)
     } catch (error) {
       console.error('Error copying prompt:', error)
-      window.alert('Copy failed. Please check clipboard permissions and try again.')
+      window.alert(t.copyFailedAlert)
     }
   }
 
@@ -359,32 +539,67 @@ function App() {
     return () => window.clearTimeout(timeoutId)
   }, [copiedPromptId])
 
+  const handleAdminModeToggle = () => {
+    if (isAdminMode) {
+      setIsAdminMode(false)
+      return
+    }
+
+    setAdminPasswordInput('')
+    setIsAdminPasswordModalOpen(true)
+  }
+
+  const handleAdminPasswordSubmit = (event) => {
+    event.preventDefault()
+
+    if (adminPasswordInput === ADMIN_MODE_PASSWORD) {
+      setIsAdminMode(true)
+      setIsAdminPasswordModalOpen(false)
+      setAdminPasswordInput('')
+      return
+    }
+
+    window.alert(t.adminPasswordWrong)
+    setAdminPasswordInput('')
+  }
+
   return (
     <div className="app-container">
       <div className="search-container">
         <div className="search-toolbar">
           {syncMessage ? <p className="sync-status">{syncMessage}</p> : null}
-          <div
-            className="search-filter-group"
-            role="tablist"
-            aria-label="Search mode"
-          >
-            {SEARCH_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                className={`search-filter ${searchMode === option.value ? 'is-active' : ''}`}
-                onClick={() => setSearchMode(option.value)}
-              >
-                {option.label}
-              </button>
-            ))}
+          <div className="search-filter-group" role="tablist" aria-label={t.languageLabel}>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={language === 'en'}
+              className={`search-filter ${language === 'en' ? 'is-active' : ''}`}
+              onClick={() => setLanguage('en')}
+            >
+              ENG
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={language === 'pt-BR'}
+              className={`search-filter ${language === 'pt-BR' ? 'is-active' : ''}`}
+              onClick={() => setLanguage('pt-BR')}
+            >
+              POR
+            </button>
+            <button
+              type="button"
+              className={`search-filter ${isAdminMode ? 'is-active' : ''}`}
+              onClick={handleAdminModeToggle}
+            >
+              {t.adminMode}
+            </button>
           </div>
 
           <input
             type="text"
             className="search-input"
-            placeholder={`Search by ${searchMode}...`}
+            placeholder={t.searchPlaceholder}
             value={searchQuery}
             onChange={(event) => {
               const nextValue = event.target.value
@@ -402,20 +617,20 @@ function App() {
         </div>
       ) : filteredPrompts.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-state-icon">No prompts</div>
-          <h3>{searchQuery ? 'No prompts found' : 'No prompts yet'}</h3>
+          <div className="empty-state-icon">{t.noPromptsChip}</div>
+          <h3>{searchQuery ? t.noPromptsFoundTitle : t.noPromptsYetTitle}</h3>
           <p>
             {searchQuery
-              ? 'Try a different search term or create a new prompt.'
-              : 'Create your first prompt to get started!'}
+              ? t.noPromptsFoundHint
+              : t.noPromptsYetHint}
           </p>
-          {!searchQuery && (
+          {!searchQuery && isAdminMode && (
             <button
               className="btn btn-primary"
               onClick={handleNewPrompt}
               style={{ marginTop: '1rem' }}
             >
-              + Create Prompt
+              + {t.createPrompt}
             </button>
           )}
         </div>
@@ -425,9 +640,16 @@ function App() {
             <PromptCard
               key={prompt.id}
               prompt={prompt}
+              displayTitle={
+                language === 'pt-BR'
+                  ? translatedTitles[prompt.title] || prompt.title
+                  : prompt.title
+              }
               onCopy={handleCopyPrompt}
               onEdit={handleEditPrompt}
               onDelete={handleDeletePrompt}
+              labels={t}
+              isAdminMode={isAdminMode}
             />
           ))}
         </div>
@@ -442,21 +664,73 @@ function App() {
           }}
           onSave={handleSavePrompt}
           prompt={editingPrompt}
+          labels={t}
         />
       </Suspense>
 
-      <button
-        className="floating-create-btn"
-        type="button"
-        onClick={handleNewPrompt}
-        aria-label="Create new prompt"
-        title="Create new prompt"
-      >
-        <span className="floating-create-btn__icon" aria-hidden="true">
-          <span></span>
-          <span></span>
-        </span>
-      </button>
+      {isAdminPasswordModalOpen ? (
+        <div className="modal-overlay" onClick={() => setIsAdminPasswordModalOpen(false)}>
+          <div className="modal" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{t.adminPasswordPrompt}</h2>
+              <button
+                className="btn btn-icon"
+                type="button"
+                onClick={() => setIsAdminPasswordModalOpen(false)}
+              >
+                {t.close}
+              </button>
+            </div>
+            <form onSubmit={handleAdminPasswordSubmit}>
+              <div className="modal-body">
+                <div className="form-group">
+                  <label htmlFor="admin-password">{t.adminPasswordPrompt}</label>
+                  <input
+                    id="admin-password"
+                    type="password"
+                    className="form-input"
+                    value={adminPasswordInput}
+                    onChange={(event) => setAdminPasswordInput(event.target.value)}
+                    placeholder={t.adminPasswordPlaceholder}
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setIsAdminPasswordModalOpen(false)}
+                >
+                  {t.cancel}
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={!adminPasswordInput}
+                >
+                  {t.adminMode}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {isAdminMode ? (
+        <button
+          className="floating-create-btn"
+          type="button"
+          onClick={handleNewPrompt}
+          aria-label={t.createNewPromptA11y}
+          title={t.createNewPromptA11y}
+        >
+          <span className="floating-create-btn__icon" aria-hidden="true">
+            <span></span>
+            <span></span>
+          </span>
+        </button>
+      ) : null}
     </div>
   )
 }

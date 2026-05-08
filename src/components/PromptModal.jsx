@@ -1,36 +1,17 @@
 import { useEffect, useState } from 'react'
 
-function normalizeList(input, formatter = (value) => value) {
-  return [
-    ...new Set(
-      input
-        .split(',')
-        .map((value) => value.trim())
-        .filter(Boolean)
-        .map(formatter)
-    ),
-  ]
-}
-
-function normalizeKeyword(value) {
-  return value.replace(/^#+/, '').trim()
-}
-
-function PromptModal({ isOpen, onClose, onSave, prompt }) {
+function PromptModal({ isOpen, onClose, onSave, prompt, labels }) {
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
-  const [keywordsInput, setKeywordsInput] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     if (prompt) {
       setTitle(prompt.title || '')
       setContent(prompt.content || '')
-      setKeywordsInput((prompt.keywords || []).join(', '))
     } else {
       setTitle('')
       setContent('')
-      setKeywordsInput('')
     }
   }, [prompt, isOpen])
 
@@ -43,13 +24,10 @@ function PromptModal({ isOpen, onClose, onSave, prompt }) {
     setIsSubmitting(true)
 
     try {
-      const keywords = normalizeList(keywordsInput, normalizeKeyword)
-
       await onSave({
         id: prompt?.id,
         title: title.trim(),
         content: content.trim(),
-        keywords,
       })
 
       onClose()
@@ -64,53 +42,38 @@ function PromptModal({ isOpen, onClose, onSave, prompt }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(event) => event.stopPropagation()}>
         <div className="modal-header">
-          <h2>{prompt ? 'Edit Prompt' : 'New Prompt'}</h2>
+          <h2>{prompt ? labels.editPrompt : labels.newPrompt}</h2>
           <button className="btn btn-icon" onClick={onClose}>
-            Close
+            {labels.close}
           </button>
         </div>
 
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
             <div className="form-group">
-              <label htmlFor="title">Title *</label>
+              <label htmlFor="title">{labels.titleField}</label>
               <input
                 type="text"
                 id="title"
                 className="form-input"
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
-                placeholder="Enter prompt title..."
+                placeholder={labels.titlePlaceholder}
                 required
                 autoFocus
               />
             </div>
 
             <div className="form-group">
-              <label htmlFor="content">Prompt Content *</label>
+              <label htmlFor="content">{labels.contentField}</label>
               <textarea
                 id="content"
                 className="form-textarea"
                 value={content}
                 onChange={(event) => setContent(event.target.value)}
-                placeholder="Enter your prompt here..."
+                placeholder={labels.contentPlaceholder}
                 required
               />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="keywords">Keywords</label>
-              <input
-                type="text"
-                id="keywords"
-                className="form-input"
-                value={keywordsInput}
-                onChange={(event) => setKeywordsInput(event.target.value)}
-                placeholder="productivity, chatgpt, midjourney..."
-              />
-              <p className="form-hint">
-                Separate with commas for additional search terms.
-              </p>
             </div>
           </div>
 
@@ -120,14 +83,14 @@ function PromptModal({ isOpen, onClose, onSave, prompt }) {
               className="btn btn-secondary"
               onClick={onClose}
             >
-              Cancel
+              {labels.cancel}
             </button>
             <button
               type="submit"
               className="btn btn-primary"
               disabled={isSubmitting || !title.trim() || !content.trim()}
             >
-              {isSubmitting ? 'Saving...' : prompt ? 'Update' : 'Create'}
+              {isSubmitting ? labels.saving : prompt ? labels.update : labels.create}
             </button>
           </div>
         </form>
